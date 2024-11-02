@@ -123,6 +123,7 @@ struct ContentView: View {
                 }
                 .keyboardShortcut(.return, modifiers: [])
                 .padding(.leading)
+                .disabled(isRunning)
 
                 Spacer()
 
