@@ -8,6 +8,73 @@
 import SwiftUI
 import AppKit
 
+struct SyntaxHighlightingTextView: NSViewRepresentable {
+    @Binding var text: String
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+
+    func makeNSView(context: Context) -> NSTextView {
+        let textView = NSTextView()
+        textView.delegate = context.coordinator
+        textView.isEditable = true
+        textView.isRichText = false
+        textView.font = NSFont.monospacedSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
+        textView.backgroundColor = NSColor.textBackgroundColor
+        textView.autoresizingMask = [.width]
+        textView.isVerticallyResizable = true
+        textView.textContainer?.widthTracksTextView = true
+        textView.textContainerInset = NSSize(width: 5, height: 5)
+        return textView
+    }
+
+    func updateNSView(_ textView: NSTextView, context: Context) {
+        if textView.string != text {
+            textView.string = text
+            applySyntaxHighlighting(to: textView)
+        }
+    }
+
+    func applySyntaxHighlighting(to textView: NSTextView) {
+        let keywords = [
+            "class", "func", "let", "var", "if", "else", "for", "while", "return", "import", "struct"
+        ]
+        let textStorage = textView.textStorage
+        let text = textView.string
+        let fullRange = NSRange(location: 0, length: (text as NSString).length)
+
+        textStorage?.setAttributes([
+            .font: NSFont.monospacedSystemFont(ofSize: NSFont.systemFontSize, weight: .regular),
+            .foregroundColor: NSColor.textColor
+        ], range: fullRange)
+
+        for keyword in keywords {
+            let pattern = "\\b" + NSRegularExpression.escapedPattern(for: keyword) + "\\b"
+            let regex = try? NSRegularExpression(pattern: pattern, options: [])
+            regex?.enumerateMatches(in: text, options: [], range: fullRange) { match, _, _ in
+                if let matchRange = match?.range {
+                    textStorage?.addAttribute(.foregroundColor, value: NSColor.systemPink, range: matchRange)
+                }
+            }
+        }
+    }
+
+    class Coordinator: NSObject, NSTextViewDelegate {
+        var parent: SyntaxHighlightingTextView
+
+        init(_ parent: SyntaxHighlightingTextView) {
+            self.parent = parent
+        }
+
+        func textDidChange(_ notification: Notification) {
+            guard let textView = notification.object as? NSTextView else { return }
+            parent.text = textView.string
+            parent.applySyntaxHighlighting(to: textView)
+        }
+    }
+}
+
 struct SplitViewController<Primary: View, Secondary: View>: NSViewControllerRepresentable {
     let primaryView: Primary
     let secondaryView: Secondary
@@ -80,10 +147,7 @@ struct ContentView: View {
             Divider()
 
             SplitViewController {
-                TextEditor(text: $scriptText)
-                    .font(.system(.body, design: .monospaced))
-                    .padding()
-                    .background(Color(NSColor.textBackgroundColor))
+                SyntaxHighlightingTextView(text: $scriptText)
             } secondaryView: {
                 ScrollView {
                     Text(outputText)
