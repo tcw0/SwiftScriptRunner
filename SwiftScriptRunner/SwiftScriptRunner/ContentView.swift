@@ -75,43 +75,17 @@ struct SyntaxHighlightingTextView: NSViewRepresentable {
     }
 }
 
-struct SplitViewController<Primary: View, Secondary: View>: NSViewControllerRepresentable {
-    let primaryView: Primary
-    let secondaryView: Secondary
-
-    init(@ViewBuilder primaryView: () -> Primary, @ViewBuilder secondaryView: () -> Secondary) {
-        self.primaryView = primaryView()
-        self.secondaryView = secondaryView()
-    }
-
-    func makeNSViewController(context: Context) -> NSSplitViewController {
-        let splitViewController = NSSplitViewController()
-
-        let primaryViewController = NSHostingController(rootView: primaryView)
-        let primaryItem = NSSplitViewItem(contentListWithViewController: primaryViewController)
-        primaryItem.minimumThickness = 200
-        primaryItem.canCollapse = false
-        splitViewController.addSplitViewItem(primaryItem)
-
-        let secondaryViewController = NSHostingController(rootView: secondaryView)
-        let secondaryItem = NSSplitViewItem(viewController: secondaryViewController)
-        secondaryItem.minimumThickness = 200
-        secondaryItem.canCollapse = true
-        splitViewController.addSplitViewItem(secondaryItem)
-
-        return splitViewController
-    }
-
-    func updateNSViewController(_ nsViewController: NSSplitViewController, context: Context) {
-        // TODO:
-    }
-}
 
 struct ContentView: View {
     @State private var scriptText: String = "// Enter your Swift script here"
-    @State private var outputText: String = ""
+    @State private var outputText: String = "Test Test"
     @State private var isRunning: Bool = false
     @State private var exitCode: Int32?
+
+    // Add properties for Process and Pipes
+    @State private var process: Process?
+    @State private var outputPipe: Pipe?
+    @State private var errorPipe: Pipe?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -148,9 +122,10 @@ struct ContentView: View {
 
             Divider()
 
-            SplitViewController {
+            HSplitView {
                 SyntaxHighlightingTextView(text: $scriptText)
-            } secondaryView: {
+                    .frame(minWidth: 200)
+                
                 ScrollView {
                     Text(outputText)
                         .font(.system(.body, design: .monospaced))
@@ -158,24 +133,23 @@ struct ContentView: View {
                         .padding()
                 }
                 .background(Color(NSColor.textBackgroundColor))
+                .frame(minWidth: 200)
             }
             .frame(minWidth: 600, minHeight: 400)
         }
     }
 
     private func runScript() {
-        // TODO: Script execution logic
-        
         isRunning = true
         outputText = ""
         exitCode = nil
-        
+
         print("Create a temporary directory")
         let tempDirectory = FileManager.default.temporaryDirectory
         let scriptURL = tempDirectory.appendingPathComponent("foo.swift")
-        
+
         print("Temporary Directory: \(tempDirectory.path)")
-        
+
         print("Write the scriptText to the file")
         do {
             try scriptText.write(to: scriptURL, atomically: true, encoding: .utf8)
@@ -184,56 +158,67 @@ struct ContentView: View {
             isRunning = false
             return
         }
-        
+
         print("Set up the Process")
-        let process = Process()
+        process = Process()
+        guard let process = process else {
+            outputText = "Failed to create process"
+            isRunning = false
+            return
+        }
         process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
         process.arguments = ["swift", scriptURL.path]
         process.currentDirectoryURL = tempDirectory
-        
+
         print("Set up Pipes")
-        let outputPipe = Pipe()
-        let errorPipe = Pipe()
+        outputPipe = Pipe()
+        errorPipe = Pipe()
+        guard let outputPipe = outputPipe, let errorPipe = errorPipe else {
+            outputText = "Failed to create pipes"
+            isRunning = false
+            return
+        }
         process.standardOutput = outputPipe
         process.standardError = errorPipe
-        
+
         print("Handle output")
         outputPipe.fileHandleForReading.readabilityHandler = { handle in
             let data = handle.availableData
             if let output = String(data: data, encoding: .utf8), !output.isEmpty {
                 DispatchQueue.main.async {
                     self.outputText += output
-                    
-                    print("Output: \(self.outputText)")
+                    print("Output: \(output)")
                 }
             }
         }
-        
+
         print("Handle errors")
         errorPipe.fileHandleForReading.readabilityHandler = { handle in
             let data = handle.availableData
             if let errorOutput = String(data: data, encoding: .utf8), !errorOutput.isEmpty {
                 DispatchQueue.main.async {
                     self.outputText += errorOutput
-                    print("Error: \(self.outputText)")
+                    print("Error: \(errorOutput)")
                 }
             }
         }
-        
+
         print("Termination handler")
         process.terminationHandler = { process in
             DispatchQueue.main.async {
                 self.isRunning = false
                 self.exitCode = process.terminationStatus
-                
+
                 print("Exit Code: \(process.terminationStatus)")
-                
-                // Close the pipe handlers
-                outputPipe.fileHandleForReading.readabilityHandler = nil
-                errorPipe.fileHandleForReading.readabilityHandler = nil
+
+                self.outputPipe?.fileHandleForReading.readabilityHandler = nil
+                self.errorPipe?.fileHandleForReading.readabilityHandler = nil
+                self.process = nil
+                self.outputPipe = nil
+                self.errorPipe = nil
             }
         }
-        
+
         print("Run the process")
         do {
             try process.run()
@@ -241,7 +226,6 @@ struct ContentView: View {
             outputText = "Failed to execute script: \(error.localizedDescription)"
             isRunning = false
         }
-        
     }
 }
 
