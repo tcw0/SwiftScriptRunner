@@ -138,6 +138,7 @@ struct ContentView: View {
 
                 if let exitCode = exitCode {
                     Text("Exit Code: \(exitCode)")
+                        .foregroundColor(exitCode == 0 ? .green : .red)
                 }
 
                 Spacer()
@@ -166,10 +167,81 @@ struct ContentView: View {
         // TODO: Script execution logic
         
         isRunning = true
+        outputText = ""
+        exitCode = nil
         
-        DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
+        print("Create a temporary directory")
+        let tempDirectory = FileManager.default.temporaryDirectory
+        let scriptURL = tempDirectory.appendingPathComponent("foo.swift")
+        
+        print("Temporary Directory: \(tempDirectory.path)")
+        
+        print("Write the scriptText to the file")
+        do {
+            try scriptText.write(to: scriptURL, atomically: true, encoding: .utf8)
+        } catch {
+            outputText = "Failed to write script: \(error.localizedDescription)"
+            isRunning = false
+            return
+        }
+        
+        print("Set up the Process")
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+        process.arguments = ["swift", scriptURL.path]
+        process.currentDirectoryURL = tempDirectory
+        
+        print("Set up Pipes")
+        let outputPipe = Pipe()
+        let errorPipe = Pipe()
+        process.standardOutput = outputPipe
+        process.standardError = errorPipe
+        
+        print("Handle output")
+        outputPipe.fileHandleForReading.readabilityHandler = { handle in
+            let data = handle.availableData
+            if let output = String(data: data, encoding: .utf8), !output.isEmpty {
+                DispatchQueue.main.async {
+                    self.outputText += output
+                    
+                    print("Output: \(self.outputText)")
+                }
+            }
+        }
+        
+        print("Handle errors")
+        errorPipe.fileHandleForReading.readabilityHandler = { handle in
+            let data = handle.availableData
+            if let errorOutput = String(data: data, encoding: .utf8), !errorOutput.isEmpty {
+                DispatchQueue.main.async {
+                    self.outputText += errorOutput
+                    print("Error: \(self.outputText)")
+                }
+            }
+        }
+        
+        print("Termination handler")
+        process.terminationHandler = { process in
+            DispatchQueue.main.async {
+                self.isRunning = false
+                self.exitCode = process.terminationStatus
+                
+                print("Exit Code: \(process.terminationStatus)")
+                
+                // Close the pipe handlers
+                outputPipe.fileHandleForReading.readabilityHandler = nil
+                errorPipe.fileHandleForReading.readabilityHandler = nil
+            }
+        }
+        
+        print("Run the process")
+        do {
+            try process.run()
+        } catch {
+            outputText = "Failed to execute script: \(error.localizedDescription)"
             isRunning = false
         }
+        
     }
 }
 
