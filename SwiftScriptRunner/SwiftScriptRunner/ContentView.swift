@@ -18,6 +18,7 @@ struct SyntaxHighlightingTextView: NSViewRepresentable {
     func makeNSView(context: Context) -> NSTextView {
         let textView = NSTextView()
         textView.delegate = context.coordinator
+        context.coordinator.textView = textView
         textView.isEditable = true
         textView.isRichText = false
         textView.font = NSFont.monospacedSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
@@ -70,9 +71,17 @@ struct SyntaxHighlightingTextView: NSViewRepresentable {
 
     class Coordinator: NSObject, NSTextViewDelegate {
         var parent: SyntaxHighlightingTextView
+        var textView: NSTextView?
 
         init(_ parent: SyntaxHighlightingTextView) {
             self.parent = parent
+            super.init()
+
+            NotificationCenter.default.addObserver(self, selector: #selector(navigateToLine(_:)), name: .navigateToLine, object: nil)
+        }
+
+        deinit {
+            NotificationCenter.default.removeObserver(self)
         }
 
         func textDidChange(_ notification: Notification) {
@@ -80,13 +89,45 @@ struct SyntaxHighlightingTextView: NSViewRepresentable {
             parent.text = textView.string
             parent.applySyntaxHighlighting(to: textView)
         }
+
+        @objc func navigateToLine(_ notification: Notification) {
+            guard let lineNumber = notification.userInfo?["lineNumber"] as? Int,
+                  let textView = textView else { return }
+
+            // Calculate the range for the specified line
+            let nsString = textView.string as NSString
+            var lineRange = NSRange(location: 0, length: 0)
+            var currentLineNumber = 1
+            var index = 0
+
+            while index < nsString.length {
+                nsString.getLineStart(nil, end: &lineRange.length, contentsEnd: nil, for: NSRange(location: index, length: 0))
+                if currentLineNumber == lineNumber {
+                    break
+                }
+                index = lineRange.length
+                currentLineNumber += 1
+            }
+
+            DispatchQueue.main.async {
+                textView.scrollRangeToVisible(NSRange(location: index, length: 0))
+                textView.showFindIndicator(for: NSRange(location: index, length: 0))
+            }
+        }
     }
+}
+
+struct ScriptError: Identifiable {
+    let id = UUID()
+    let message: String
+    let lineNumber: Int
+    let range: NSRange?
 }
 
 
 struct ContentView: View {
     @State private var scriptText: String = "// Enter your Swift script here"
-    @State private var outputText: String = "Test Test"
+    @State private var outputText: String = ""
     @State private var isRunning: Bool = false
     @State private var exitCode: Int32?
 
@@ -94,6 +135,12 @@ struct ContentView: View {
     @State private var process: Process?
     @State private var outputPipe: Pipe?
     @State private var errorPipe: Pipe?
+    
+    @State private var scriptErrors: [ScriptError] = []
+    
+    private func navigateToLine(_ lineNumber: Int) {
+        NotificationCenter.default.post(name: .navigateToLine, object: nil, userInfo: ["lineNumber": lineNumber])
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -143,10 +190,23 @@ struct ContentView: View {
                     .frame(minWidth: 200)
                 
                 ScrollView {
-                    Text(outputText)
-                        .font(.system(.body, design: .monospaced))
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding()
+                    VStack(alignment: .leading) {
+                        Text(outputText)
+                            .font(.system(.body, design: .monospaced))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding()
+
+                        ForEach(scriptErrors) { error in
+                            Button(action: {
+                                navigateToLine(error.lineNumber)
+                            }) {
+                                Text("Error on line \(error.lineNumber): \(error.message)")
+                                    .foregroundColor(.red)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                        }
+                    }
                 }
                 .background(Color(NSColor.textBackgroundColor))
                 .frame(minWidth: 200)
@@ -154,11 +214,34 @@ struct ContentView: View {
             .frame(minWidth: 600, minHeight: 400)
         }
     }
+    
+    private func parseErrorMessages(_ errorOutput: String) {
+        // Regular expression to match error messages with file name and line number
+        let pattern = #"(?m)(.*):(\d+):(\d+):\s(error|warning):\s(.*)$"#
+
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: []) else { return }
+
+        let matches = regex.matches(in: errorOutput, options: [], range: NSRange(location: 0, length: (errorOutput as NSString).length))
+
+        for match in matches {
+            let lineNumberRange = match.range(at: 2)
+            let messageRange = match.range(at: 5)
+
+            if let lineNumberString = (errorOutput as NSString).substring(with: lineNumberRange) as String?,
+               let lineNumber = Int(lineNumberString),
+               let message = (errorOutput as NSString).substring(with: messageRange) as String? {
+
+                let scriptError = ScriptError(message: message, lineNumber: lineNumber, range: nil)
+                scriptErrors.append(scriptError)
+            }
+        }
+    }
 
     private func runScript() {
         isRunning = true
         outputText = ""
         exitCode = nil
+        scriptErrors = []
 
         print("Create a temporary directory")
         let tempDirectory = FileManager.default.temporaryDirectory
@@ -214,7 +297,8 @@ struct ContentView: View {
             if let errorOutput = String(data: data, encoding: .utf8), !errorOutput.isEmpty {
                 DispatchQueue.main.async {
                     self.outputText += errorOutput
-                    print("Error: \(errorOutput)")
+
+                    self.parseErrorMessages(errorOutput)
                 }
             }
         }
@@ -253,6 +337,10 @@ struct ContentView: View {
     }
 }
 
+
+extension Notification.Name {
+    static let navigateToLine = Notification.Name("navigateToLine")
+}
 
 #Preview {
     ContentView()
