@@ -37,9 +37,6 @@ struct SyntaxHighlightingTextView: NSViewRepresentable {
     }
 
     func applySyntaxHighlighting(to textView: NSTextView) {
-        let keywords = [
-            "class", "func", "let", "var", "if", "else", "for", "while", "return", "import", "struct"
-        ]
         let textStorage = textView.textStorage
         let text = textView.string
         let fullRange = NSRange(location: 0, length: (text as NSString).length)
@@ -49,16 +46,27 @@ struct SyntaxHighlightingTextView: NSViewRepresentable {
             .foregroundColor: NSColor.textColor
         ], range: fullRange)
 
-        for keyword in keywords {
-            let pattern = "\\b" + NSRegularExpression.escapedPattern(for: keyword) + "\\b"
+        let patterns: [(pattern: String, color: NSColor)] = [
+            // Strings
+            ("\"(\\\\.|[^\"\\\\])*\"", NSColor.systemRed),
+            // Single-line comments
+            ("//.*", NSColor.systemGreen),
+            // Multi-line comments
+            ("/\\*(.|\n)*?\\*/", NSColor.systemGreen),
+            // Keywords
+            ("\\b(class|struct|enum|protocol|extension|func|let|var|if|else|for|while|repeat|return|import|break|continue|switch|case|default|do|try|catch|throw|as|is|in|out|where|super|self|guard|defer|nil|true|false)\\b", NSColor.systemPink)
+        ]
+        
+        for (pattern, color) in patterns {
             let regex = try? NSRegularExpression(pattern: pattern, options: [])
             regex?.enumerateMatches(in: text, options: [], range: fullRange) { match, _, _ in
                 if let matchRange = match?.range {
-                    textStorage?.addAttribute(.foregroundColor, value: NSColor.systemPink, range: matchRange)
+                    textStorage?.addAttribute(.foregroundColor, value: color, range: matchRange)
                 }
             }
         }
     }
+
 
     class Coordinator: NSObject, NSTextViewDelegate {
         var parent: SyntaxHighlightingTextView
