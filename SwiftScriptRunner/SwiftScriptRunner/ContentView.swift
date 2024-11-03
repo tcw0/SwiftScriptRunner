@@ -98,6 +98,14 @@ struct ContentView: View {
                 .keyboardShortcut(.return, modifiers: [])
                 .padding(.leading)
                 .disabled(isRunning)
+                
+                Button(action: {
+                    stopScript()
+                }) {
+                    Text("Stop")
+                }
+                .keyboardShortcut(.escape, modifiers: [])
+                .disabled(!isRunning)
 
                 Spacer()
 
@@ -226,6 +234,14 @@ struct ContentView: View {
             outputText = "Failed to execute script: \(error.localizedDescription)"
             isRunning = false
         }
+    }
+    
+    private func stopScript() {
+        guard let process = process else { return }
+
+        process.terminate()
+        isRunning = false
+        outputText += "\nScript execution was terminated by the user.\n"
     }
 }
 
