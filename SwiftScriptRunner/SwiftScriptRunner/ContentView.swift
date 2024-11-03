@@ -47,14 +47,14 @@ struct SyntaxHighlightingTextView: NSViewRepresentable {
         ], range: fullRange)
 
         let patterns: [(pattern: String, color: NSColor)] = [
+            // Keywords
+            ("\\b(class|struct|enum|protocol|extension|func|let|var|if|else|for|while|repeat|return|import|break|continue|switch|case|default|do|try|catch|throw|as|is|in|out|where|super|self|guard|defer|nil|true|false)\\b", NSColor.systemPink),
             // Strings
             ("\"(\\\\.|[^\"\\\\])*\"", NSColor.systemRed),
             // Single-line comments
             ("//.*", NSColor.systemGreen),
             // Multi-line comments
-            ("/\\*(.|\n)*?\\*/", NSColor.systemGreen),
-            // Keywords
-            ("\\b(class|struct|enum|protocol|extension|func|let|var|if|else|for|while|repeat|return|import|break|continue|switch|case|default|do|try|catch|throw|as|is|in|out|where|super|self|guard|defer|nil|true|false)\\b", NSColor.systemPink)
+            ("/\\*(.|\n)*?\\*/", NSColor.systemGreen)
         ]
         
         for (pattern, color) in patterns {
