@@ -15,24 +15,41 @@ struct SyntaxHighlightingTextView: NSViewRepresentable {
         Coordinator(self)
     }
 
-    func makeNSView(context: Context) -> NSTextView {
+    func makeNSView(context: Context) -> NSScrollView {
         let textView = NSTextView()
         textView.delegate = context.coordinator
         context.coordinator.textView = textView
         textView.isEditable = true
         textView.isRichText = false
         textView.font = NSFont.monospacedSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
-        textView.backgroundColor = NSColor.textBackgroundColor
-        textView.autoresizingMask = [.width]
         textView.isVerticallyResizable = true
+        textView.isHorizontallyResizable = true
+        textView.autoresizingMask = [.width]
         textView.textContainer?.widthTracksTextView = true
+        textView.textContainer?.containerSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
         textView.textContainerInset = NSSize(width: 5, height: 5)
-        return textView
+        textView.backgroundColor = NSColor.textBackgroundColor
+        
+        let scrollView = NSScrollView()
+        scrollView.documentView = textView
+        scrollView.hasVerticalScroller = true
+        scrollView.hasHorizontalScroller = false
+        scrollView.autohidesScrollers = true
+        scrollView.borderType = .noBorder
+        scrollView.backgroundColor = NSColor.textBackgroundColor
+        
+        
+        textView.minSize = NSSize(width: 0.0, height: scrollView.contentSize.height)
+        textView.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
+
+        return scrollView
     }
 
-    func updateNSView(_ textView: NSTextView, context: Context) {
-        if textView.string != text {
-            textView.string = text
+    func updateNSView(_ nsView: NSScrollView, context: Context) {
+        if let textView = nsView.documentView as? NSTextView {
+            if textView.string != text {
+                textView.string = text
+            }
             applySyntaxHighlighting(to: textView)
         }
     }
