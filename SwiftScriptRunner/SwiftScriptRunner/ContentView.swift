@@ -8,35 +8,38 @@
 import SwiftUI
 import AppKit
 
+// Custom text view for syntax highlighting using NSViewRepresentable
 struct SyntaxHighlightingTextView: NSViewRepresentable {
     @Binding var text: String
 
+    // Coordinator handling NSTextViewDelegate methods
     func makeCoordinator() -> Coordinator {
         Coordinator(self)
     }
 
+    // Create NSView (NSTextView wrapped in NSScrollView)
     func makeNSView(context: Context) -> NSScrollView {
         let textView = NSTextView()
-        textView.delegate = context.coordinator
+        textView.delegate = context.coordinator     // Set the coordinator as the delegate
         context.coordinator.textView = textView
-        textView.isEditable = true
-        textView.isRichText = false
-        textView.font = NSFont.monospacedSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
-        textView.isVerticallyResizable = true
-        textView.isHorizontallyResizable = true
-        textView.autoresizingMask = [.width]
-        textView.textContainer?.widthTracksTextView = true
+        textView.isEditable = true                  // Make the text view editable
+        textView.isRichText = false                 // Disable rich text formatting
+        textView.font = NSFont.monospacedSystemFont(ofSize: NSFont.systemFontSize, weight: .regular) // Use a monospaced font
+        textView.isVerticallyResizable = true       // Allow vertical resizing
+        textView.isHorizontallyResizable = true     // Allow horizontal resizing
+        textView.autoresizingMask = [.width]        // Allow the width to adjust
+        textView.textContainer?.widthTracksTextView = true          // Text container resizes with the text view
         textView.textContainer?.containerSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
-        textView.textContainerInset = NSSize(width: 5, height: 5)
-        textView.backgroundColor = NSColor.textBackgroundColor
-        textView.isAutomaticQuoteSubstitutionEnabled = false    // Disable smart quotes
+        textView.textContainerInset = NSSize(width: 5, height: 5)   // Add padding inside the text container
+        textView.backgroundColor = NSColor.textBackgroundColor      // Set the background color
+        textView.isAutomaticQuoteSubstitutionEnabled = false        // Disable automatic smart quotes
 
-        
+        // Wrap textView in NSScrollView to allow scrolling
         let scrollView = NSScrollView()
         scrollView.documentView = textView
-        scrollView.hasVerticalScroller = true
-        scrollView.hasHorizontalScroller = false
-        scrollView.autohidesScrollers = true
+        scrollView.hasVerticalScroller = true       // Add a vertical scroller
+        scrollView.hasHorizontalScroller = false    // No horizontal scroller needed
+        scrollView.autohidesScrollers = true        // Scrollers will auto-hide when not needed
         scrollView.borderType = .noBorder
         scrollView.backgroundColor = NSColor.textBackgroundColor
         
@@ -46,26 +49,30 @@ struct SyntaxHighlightingTextView: NSViewRepresentable {
 
         return scrollView
     }
-
+    
+    // Update view whenever bound text changes
     func updateNSView(_ nsView: NSScrollView, context: Context) {
         if let textView = nsView.documentView as? NSTextView {
-            if textView.string != text {
+            if textView.string != text {            // Update only if the content differs
                 textView.string = text
             }
-            applySyntaxHighlighting(to: textView)
+            applySyntaxHighlighting(to: textView)   // Apply syntax highlighting after update
         }
     }
 
+    // Apply syntax highlighting
     func applySyntaxHighlighting(to textView: NSTextView) {
         let textStorage = textView.textStorage
         let text = textView.string
         let fullRange = NSRange(location: 0, length: (text as NSString).length)
 
+        // Reset text attributes (font and color)
         textStorage?.setAttributes([
             .font: NSFont.monospacedSystemFont(ofSize: NSFont.systemFontSize, weight: .regular),
             .foregroundColor: NSColor.textColor
         ], range: fullRange)
 
+        // Patterns for syntax highlighting: keywords, strings, and comments
         let patterns: [(pattern: String, color: NSColor)] = [
             // Keywords
             ("\\b(class|struct|enum|protocol|extension|func|let|var|if|else|for|while|repeat|return|import|break|continue|switch|case|default|do|try|catch|throw|as|is|in|out|where|super|self|guard|defer|nil|true|false)\\b", NSColor.systemPink),
@@ -77,6 +84,7 @@ struct SyntaxHighlightingTextView: NSViewRepresentable {
             ("/\\*(.|\n)*?\\*/", NSColor.systemGreen)
         ]
         
+        // Apply the appropriate color to each pattern match
         for (pattern, color) in patterns {
             let regex = try? NSRegularExpression(pattern: pattern, options: [])
             regex?.enumerateMatches(in: text, options: [], range: fullRange) { match, _, _ in
@@ -87,7 +95,7 @@ struct SyntaxHighlightingTextView: NSViewRepresentable {
         }
     }
 
-
+    // Coordinator class that acts as a delegate to handle text changes and notifications
     class Coordinator: NSObject, NSTextViewDelegate {
         var parent: SyntaxHighlightingTextView
         var textView: NSTextView?
@@ -95,20 +103,24 @@ struct SyntaxHighlightingTextView: NSViewRepresentable {
         init(_ parent: SyntaxHighlightingTextView) {
             self.parent = parent
             super.init()
-
+            
+            // Register for line navigation notifications
             NotificationCenter.default.addObserver(self, selector: #selector(navigateToLine(_:)), name: .navigateToLine, object: nil)
         }
 
         deinit {
+            // Unregister observer when the coordinator is deallocated
             NotificationCenter.default.removeObserver(self)
         }
 
+        // Delegate method called when text changes
         func textDidChange(_ notification: Notification) {
             guard let textView = notification.object as? NSTextView else { return }
             parent.text = textView.string
             parent.applySyntaxHighlighting(to: textView)
         }
 
+        // Handles navigation to a specific line in the text
         @objc func navigateToLine(_ notification: Notification) {
             guard let lineNumber = notification.userInfo?["lineNumber"] as? Int,
                   let columnNumber = notification.userInfo?["columnNumber"] as? Int,
@@ -121,6 +133,7 @@ struct SyntaxHighlightingTextView: NSViewRepresentable {
             var contentEndIndex = 0
             var currentLineNumber = 1
 
+            // Loop through lines to find the specified line
             while lineEndIndex < nsString.length {
                 nsString.getLineStart(&lineStartIndex, end: &lineEndIndex, contentsEnd: &contentEndIndex, for: NSRange(location: lineEndIndex, length: 0))
 
@@ -129,7 +142,8 @@ struct SyntaxHighlightingTextView: NSViewRepresentable {
                 }
                 currentLineNumber += 1
             }
-
+            
+            // Navigate to the specified line and column
             if currentLineNumber == lineNumber {
                 let lineRange = NSRange(location: lineStartIndex, length: contentEndIndex - lineStartIndex)
                 let lineText = nsString.substring(with: lineRange)
@@ -138,6 +152,7 @@ struct SyntaxHighlightingTextView: NSViewRepresentable {
 
                 let characterIndex = lineStartIndex + columnIndex
 
+                // Move the cursor and scroll to the specified location
                 DispatchQueue.main.async {
                     textView.setSelectedRange(NSRange(location: characterIndex, length: 0))
 
@@ -150,6 +165,7 @@ struct SyntaxHighlightingTextView: NSViewRepresentable {
     }
 }
 
+// Represents a script error, with the message, line, and column number
 struct ScriptError: Identifiable {
     let id = UUID()
     let message: String
@@ -158,17 +174,19 @@ struct ScriptError: Identifiable {
     let range: NSRange?
 }
 
+// Main view of the app, displaying the script editor, output, and controls for running/stopping scripts
 struct ContentView: View {
     @State private var scriptText: String = "// Enter your Swift script here"
     @State private var outputText: String = ""
     @State private var isRunning: Bool = false
     @State private var exitCode: Int32?
 
-    // Add properties for Process and Pipes
+    // Process and pipe-related state variables
     @State private var process: Process?
     @State private var outputPipe: Pipe?
     @State private var errorPipe: Pipe?
     
+    // Script errors
     @State private var scriptErrors: [ScriptError] = []
 
     // Interactive input
@@ -176,15 +194,15 @@ struct ContentView: View {
     @State private var userInput: String = ""
     @State private var isInputFieldDisabled: Bool = true
 
+    // Notification handler to navigate to a specific line in the script
     private func navigateToLine(_ lineNumber: Int, columnNumber: Int) {
         NotificationCenter.default.post(name: .navigateToLine, object: nil, userInfo: ["lineNumber": lineNumber, "columnNumber": columnNumber])
     }
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack {
-
-                HStack {
+            HStack {            // Top bar
+                HStack {        // Progress
                     Spacer()
                     
                     if isRunning {
@@ -197,9 +215,7 @@ struct ContentView: View {
                     }
                 }
                 
-
-
-                HStack {
+                HStack {        // Run/Stop buttons & exit code
                     Spacer()
                     
                     if let exitCode = exitCode {
@@ -231,14 +247,15 @@ struct ContentView: View {
             Divider()
 
             HSplitView {
+                // Script editor on the left
                 SyntaxHighlightingTextView(text: $scriptText)
                     .frame(minWidth: 200)
 
+                // Output and error display on the right
                 VStack {
                     ScrollView {
                         VStack(alignment: .leading) {
-                            // Display the output text
-                            Text(outputText)
+                            Text(outputText)        // Output text
                                 .textSelection(.enabled)
                                 .font(.system(.body, design: .monospaced))
                                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -263,6 +280,7 @@ struct ContentView: View {
 
                     Spacer()
 
+                    // User input
                     if isRunning {
                         HStack {
                             TextField("Enter input...", text: $userInput, onCommit: {
@@ -286,6 +304,7 @@ struct ContentView: View {
         }
     }
     
+    // Parse error messages from script execution output
     private func parseErrorMessages(_ errorOutput: String) {
         let pattern = #"(?m)(.*):(\d+):(\d+):\s(error|warning):\s(.*)$"#
 
@@ -293,6 +312,7 @@ struct ContentView: View {
 
         let matches = regex.matches(in: errorOutput, options: [], range: NSRange(location: 0, length: (errorOutput as NSString).length))
 
+        // Extract error details (line, column, and message) from matches
         for match in matches {
             let lineNumberRange = match.range(at: 2)
             let columnNumberRange = match.range(at: 3)
@@ -310,7 +330,7 @@ struct ContentView: View {
         }
     }
 
-
+    // Run the Swift script by creating a temporary file and launching a process
     private func runScript() {
         isRunning = true
         outputText = ""
@@ -319,7 +339,7 @@ struct ContentView: View {
         userInput = ""
         isInputFieldDisabled = false
 
-        // Create a temporary directory
+        // Create a temporary directory & file
         let tempDirectory = FileManager.default.temporaryDirectory
         let scriptURL = tempDirectory.appendingPathComponent("foo.swift")
 
@@ -353,7 +373,7 @@ struct ContentView: View {
         // Set up Pipes
         outputPipe = Pipe()
         errorPipe = Pipe()
-        inputPipe = Pipe() // Initialize the input pipe
+        inputPipe = Pipe()
         guard let outputPipe = outputPipe, let errorPipe = errorPipe, let inputPipe = inputPipe else {
             outputText = "Failed to create pipes"
             isRunning = false
@@ -412,6 +432,7 @@ struct ContentView: View {
         }
     }
 
+    // Stop the running script
     private func stopScript() {
         guard let process = process else { return }
 
@@ -420,7 +441,8 @@ struct ContentView: View {
         isInputFieldDisabled = true
         outputText += "\nScript execution was terminated by the user.\n"
     }
-
+    
+    // Send input from the user to the running script
     private func sendInput() {
         guard let inputPipe = inputPipe else { return }
 
@@ -434,7 +456,7 @@ struct ContentView: View {
     }
 }
 
-
+// Extension to handle line navigation notifications
 extension Notification.Name {
     static let navigateToLine = Notification.Name("navigateToLine")
 }
