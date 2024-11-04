@@ -344,6 +344,11 @@ struct ContentView: View {
         process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
         process.arguments = ["swift", scriptURL.path]
         process.currentDirectoryURL = tempDirectory
+        
+        // Set environment variable to disable buffering
+        var environment = ProcessInfo.processInfo.environment
+        environment["NSUnbufferedIO"] = "YES"
+        process.environment = environment
 
         // Set up Pipes
         outputPipe = Pipe()
