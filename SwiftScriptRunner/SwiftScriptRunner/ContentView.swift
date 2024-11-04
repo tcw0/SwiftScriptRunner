@@ -73,28 +73,49 @@ struct SyntaxHighlightingTextView: NSViewRepresentable {
             .foregroundColor: NSColor.textColor
         ], range: fullRange)
 
-        // Patterns for syntax highlighting: keywords, strings, and comments
-        let patterns: [(pattern: String, color: NSColor)] = [
-            // Keywords
-            ("\\b(class|struct|enum|protocol|extension|func|let|var|if|else|for|while|repeat|return|import|break|continue|switch|case|default|do|try|catch|throw|as|is|in|out|where|super|self|guard|defer|nil|true|false)\\b", NSColor.systemPink),
-            // Strings
-            ("\"(\\\\.|[^\"\\\\])*\"", NSColor.systemRed),
-            // Single-line comments
-            ("//.*", NSColor.systemGreen),
-            // Multi-line comments
-            ("/\\*(.|\n)*?\\*/", NSColor.systemGreen)
-        ]
-        
-        // Apply the appropriate color to each pattern match
-        for (pattern, color) in patterns {
+        // Highlight comments (both single-line and multi-line)
+        let singleLineCommentPattern = "//.*"               // Single-line comments
+        let multiLineCommentPattern = "/\\*(.|\n)*?\\*/"    // Multi-line comments
+        let commentPatterns = [singleLineCommentPattern, multiLineCommentPattern]
+        for pattern in commentPatterns {
             let regex = try? NSRegularExpression(pattern: pattern, options: [])
             regex?.enumerateMatches(in: text, options: [], range: fullRange) { match, _, _ in
                 if let matchRange = match?.range {
-                    textStorage?.addAttribute(.foregroundColor, value: color, range: matchRange)
+                    textStorage?.addAttribute(.foregroundColor, value: NSColor.systemGreen, range: matchRange)
+                }
+            }
+        }
+
+
+        // Highlight string literals, outside of comment ranges
+        let stringPattern = "\"(\\\\.|[^\"\\\\])*\""        // String literals
+        let stringRegex = try? NSRegularExpression(pattern: stringPattern, options: [])
+        stringRegex?.enumerateMatches(in: text, options: [], range: fullRange) { match, _, _ in
+            if let matchRange = match?.range {
+                // Ensure that the string literal is not part of a comment
+                let attributes = textStorage?.attributes(at: matchRange.location, effectiveRange: nil)
+                if let foregroundColor = attributes?[.foregroundColor] as? NSColor, foregroundColor != NSColor.systemGreen {
+                    // Apply red color for string literals only if they are not part of a comment
+                    textStorage?.addAttribute(.foregroundColor, value: NSColor.systemRed, range: matchRange)
+                }
+            }
+        }
+
+        // Highlight keywords in non-comment and non-string areas
+        let keywordPattern = "\\b(class|struct|enum|protocol|extension|func|let|var|if|else|for|while|repeat|return|import|break|continue|switch|case|default|do|try|catch|throw|as|is|in|out|where|super|self|guard|defer|nil|true|false)\\b"
+        let keywordRegex = try? NSRegularExpression(pattern: keywordPattern, options: [])
+        keywordRegex?.enumerateMatches(in: text, options: [], range: fullRange) { match, _, _ in
+            if let matchRange = match?.range {
+                // Ensure that the keyword is not part of a comment or string
+                let attributes = textStorage?.attributes(at: matchRange.location, effectiveRange: nil)
+                if let foregroundColor = attributes?[.foregroundColor] as? NSColor, foregroundColor != NSColor.systemGreen && foregroundColor != NSColor.systemRed {
+                    // Apply pink color for keywords only if they are not part of a comment or string
+                    textStorage?.addAttribute(.foregroundColor, value: NSColor.systemMint, range: matchRange)
                 }
             }
         }
     }
+
 
     // Coordinator class that acts as a delegate to handle text changes and notifications
     class Coordinator: NSObject, NSTextViewDelegate {
