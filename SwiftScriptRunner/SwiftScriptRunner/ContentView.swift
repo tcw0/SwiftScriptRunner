@@ -33,8 +33,11 @@ struct SyntaxHighlightingTextView: NSViewRepresentable {
         textView.textContainerInset = NSSize(width: 5, height: 5)   // Add padding inside the text container
         textView.backgroundColor = NSColor.textBackgroundColor      // Set the background color
         textView.isAutomaticQuoteSubstitutionEnabled = false        // Disable automatic smart quotes
-        textView.isAutomaticDashSubstitutionEnabled = false          // Disable dash replacement (e.g., "..." to "…")
-
+        textView.isAutomaticDashSubstitutionEnabled = false         // Disable smart dashes
+        textView.isAutomaticTextReplacementEnabled = false          // Disable automatic text replacements
+        textView.isAutomaticDashSubstitutionEnabled = false         // Disable dash replacement (e.g., "..." to "…")
+        textView.allowsUndo = true                                  // Enable Undo Support
+        
         // Wrap textView in NSScrollView to allow scrolling
         let scrollView = NSScrollView()
         scrollView.documentView = textView
@@ -63,12 +66,16 @@ struct SyntaxHighlightingTextView: NSViewRepresentable {
 
     // Apply syntax highlighting
     func applySyntaxHighlighting(to textView: NSTextView) {
-        let textStorage = textView.textStorage
+        guard let textStorage = textView.textStorage else { return }
         let text = textView.string
         let fullRange = NSRange(location: 0, length: (text as NSString).length)
 
+        // Begin editing and disable undo registration
+        textStorage.beginEditing()
+        textView.undoManager?.disableUndoRegistration()
+        
         // Reset text attributes (font and color)
-        textStorage?.setAttributes([
+        textStorage.setAttributes([
             .font: NSFont.monospacedSystemFont(ofSize: NSFont.systemFontSize, weight: .regular),
             .foregroundColor: NSColor.textColor
         ], range: fullRange)
@@ -81,7 +88,7 @@ struct SyntaxHighlightingTextView: NSViewRepresentable {
             let regex = try? NSRegularExpression(pattern: pattern, options: [])
             regex?.enumerateMatches(in: text, options: [], range: fullRange) { match, _, _ in
                 if let matchRange = match?.range {
-                    textStorage?.addAttribute(.foregroundColor, value: NSColor.systemGreen, range: matchRange)
+                    textStorage.addAttribute(.foregroundColor, value: NSColor.systemGreen, range: matchRange)
                 }
             }
         }
@@ -93,10 +100,10 @@ struct SyntaxHighlightingTextView: NSViewRepresentable {
         stringRegex?.enumerateMatches(in: text, options: [], range: fullRange) { match, _, _ in
             if let matchRange = match?.range {
                 // Ensure that the string literal is not part of a comment
-                let attributes = textStorage?.attributes(at: matchRange.location, effectiveRange: nil)
-                if let foregroundColor = attributes?[.foregroundColor] as? NSColor, foregroundColor != NSColor.systemGreen {
+                let attributes = textStorage.attributes(at: matchRange.location, effectiveRange: nil)
+                if let foregroundColor = attributes[.foregroundColor] as? NSColor, foregroundColor != NSColor.systemGreen {
                     // Apply red color for string literals only if they are not part of a comment
-                    textStorage?.addAttribute(.foregroundColor, value: NSColor.systemRed, range: matchRange)
+                    textStorage.addAttribute(.foregroundColor, value: NSColor.systemRed, range: matchRange)
                 }
             }
         }
@@ -107,13 +114,17 @@ struct SyntaxHighlightingTextView: NSViewRepresentable {
         keywordRegex?.enumerateMatches(in: text, options: [], range: fullRange) { match, _, _ in
             if let matchRange = match?.range {
                 // Ensure that the keyword is not part of a comment or string
-                let attributes = textStorage?.attributes(at: matchRange.location, effectiveRange: nil)
-                if let foregroundColor = attributes?[.foregroundColor] as? NSColor, foregroundColor != NSColor.systemGreen && foregroundColor != NSColor.systemRed {
+                let attributes = textStorage.attributes(at: matchRange.location, effectiveRange: nil)
+                if let foregroundColor = attributes[.foregroundColor] as? NSColor, foregroundColor != NSColor.systemGreen && foregroundColor != NSColor.systemRed {
                     // Apply pink color for keywords only if they are not part of a comment or string
-                    textStorage?.addAttribute(.foregroundColor, value: NSColor.systemMint, range: matchRange)
+                    textStorage.addAttribute(.foregroundColor, value: NSColor.systemMint, range: matchRange)
                 }
             }
         }
+        
+        // Re-enable undo registration and end editing
+        textView.undoManager?.enableUndoRegistration()
+        textStorage.endEditing()
     }
 
 
