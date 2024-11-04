@@ -281,13 +281,11 @@ struct ContentView: View {
         exitCode = nil
         scriptErrors = []
 
-        print("Create a temporary directory")
+        // Create a temporary directory
         let tempDirectory = FileManager.default.temporaryDirectory
         let scriptURL = tempDirectory.appendingPathComponent("foo.swift")
 
-        print("Temporary Directory: \(tempDirectory.path)")
-
-        print("Write the scriptText to the file")
+        // Write the scriptText to the file
         do {
             try scriptText.write(to: scriptURL, atomically: true, encoding: .utf8)
         } catch {
@@ -296,7 +294,7 @@ struct ContentView: View {
             return
         }
 
-        print("Set up the Process")
+        // Set up the Process
         process = Process()
         guard let process = process else {
             outputText = "Failed to create process"
@@ -307,7 +305,7 @@ struct ContentView: View {
         process.arguments = ["swift", scriptURL.path]
         process.currentDirectoryURL = tempDirectory
 
-        print("Set up Pipes")
+        // Set up Pipes
         outputPipe = Pipe()
         errorPipe = Pipe()
         guard let outputPipe = outputPipe, let errorPipe = errorPipe else {
@@ -318,7 +316,7 @@ struct ContentView: View {
         process.standardOutput = outputPipe
         process.standardError = errorPipe
 
-        print("Handle output")
+        // Handle output
         outputPipe.fileHandleForReading.readabilityHandler = { handle in
             let data = handle.availableData
             if let output = String(data: data, encoding: .utf8), !output.isEmpty {
@@ -329,7 +327,7 @@ struct ContentView: View {
             }
         }
 
-        print("Handle errors")
+        // Handle errors
         errorPipe.fileHandleForReading.readabilityHandler = { handle in
             let data = handle.availableData
             if let errorOutput = String(data: data, encoding: .utf8), !errorOutput.isEmpty {
@@ -341,7 +339,7 @@ struct ContentView: View {
             }
         }
 
-        print("Termination handler")
+        // Termination handler
         process.terminationHandler = { process in
             DispatchQueue.main.async {
                 self.isRunning = false
@@ -357,7 +355,7 @@ struct ContentView: View {
             }
         }
 
-        print("Run the process")
+        // Run the process
         do {
             try process.run()
         } catch {
