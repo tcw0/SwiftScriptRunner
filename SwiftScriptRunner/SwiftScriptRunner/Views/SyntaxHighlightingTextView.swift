@@ -19,7 +19,7 @@ struct SyntaxHighlightingTextView: NSViewRepresentable {
 
     // Create NSView (NSTextView wrapped in NSScrollView)
     func makeNSView(context: Context) -> NSScrollView {
-        let textView = NSTextView()
+        let textView = CustomTextView()
         textView.delegate = context.coordinator     // Set the coordinator as the delegate
         context.coordinator.textView = textView
         textView.isEditable = true                  // Make the text view editable
@@ -36,7 +36,7 @@ struct SyntaxHighlightingTextView: NSViewRepresentable {
         textView.isAutomaticDashSubstitutionEnabled = false         // Disable smart dashes
         textView.isAutomaticTextReplacementEnabled = false          // Disable automatic text replacements
         textView.allowsUndo = true                                  // Enable Undo Support
-        
+
         // Wrap textView in NSScrollView to allow scrolling
         let scrollView = NSScrollView()
         scrollView.documentView = textView
@@ -45,13 +45,13 @@ struct SyntaxHighlightingTextView: NSViewRepresentable {
         scrollView.autohidesScrollers = true        // Scrollers will auto-hide when not needed
         scrollView.borderType = .noBorder
         scrollView.backgroundColor = NSColor.textBackgroundColor
-        
-        
+
         textView.minSize = NSSize(width: 0.0, height: scrollView.contentSize.height)
         textView.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
 
         return scrollView
     }
+
     
     // Update view whenever bound text changes
     func updateNSView(_ nsView: NSScrollView, context: Context) {
