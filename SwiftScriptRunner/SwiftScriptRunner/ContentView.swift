@@ -29,6 +29,7 @@ struct SyntaxHighlightingTextView: NSViewRepresentable {
         textView.textContainer?.containerSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
         textView.textContainerInset = NSSize(width: 5, height: 5)
         textView.backgroundColor = NSColor.textBackgroundColor
+
         
         let scrollView = NSScrollView()
         scrollView.documentView = textView
@@ -109,26 +110,40 @@ struct SyntaxHighlightingTextView: NSViewRepresentable {
 
         @objc func navigateToLine(_ notification: Notification) {
             guard let lineNumber = notification.userInfo?["lineNumber"] as? Int,
+                  let columnNumber = notification.userInfo?["columnNumber"] as? Int,
                   let textView = textView else { return }
 
-            // Calculate the range for the specified line
             let nsString = textView.string as NSString
-            var lineRange = NSRange(location: 0, length: 0)
-            var currentLineNumber = 1
-            var index = 0
 
-            while index < nsString.length {
-                nsString.getLineStart(nil, end: &lineRange.length, contentsEnd: nil, for: NSRange(location: index, length: 0))
+            var lineStartIndex = 0
+            var lineEndIndex = 0
+            var contentEndIndex = 0
+            var currentLineNumber = 1
+
+            while lineEndIndex < nsString.length {
+                nsString.getLineStart(&lineStartIndex, end: &lineEndIndex, contentsEnd: &contentEndIndex, for: NSRange(location: lineEndIndex, length: 0))
+
                 if currentLineNumber == lineNumber {
                     break
                 }
-                index = lineRange.length
                 currentLineNumber += 1
             }
 
-            DispatchQueue.main.async {
-                textView.scrollRangeToVisible(NSRange(location: index, length: 0))
-                textView.showFindIndicator(for: NSRange(location: index, length: 0))
+            if currentLineNumber == lineNumber {
+                let lineRange = NSRange(location: lineStartIndex, length: contentEndIndex - lineStartIndex)
+                let lineText = nsString.substring(with: lineRange)
+
+                let columnIndex = max(0, min(columnNumber - 1, lineText.count))
+
+                let characterIndex = lineStartIndex + columnIndex
+
+                DispatchQueue.main.async {
+                    textView.setSelectedRange(NSRange(location: characterIndex, length: 0))
+
+                    textView.scrollRangeToVisible(NSRange(location: characterIndex, length: 0))
+
+                    textView.showFindIndicator(for: NSRange(location: lineStartIndex, length: contentEndIndex - lineStartIndex))
+                }
             }
         }
     }
@@ -138,9 +153,9 @@ struct ScriptError: Identifiable {
     let id = UUID()
     let message: String
     let lineNumber: Int
+    let columnNumber: Int
     let range: NSRange?
 }
-
 
 struct ContentView: View {
     @State private var scriptText: String = "// Enter your Swift script here"
@@ -155,8 +170,8 @@ struct ContentView: View {
     
     @State private var scriptErrors: [ScriptError] = []
     
-    private func navigateToLine(_ lineNumber: Int) {
-        NotificationCenter.default.post(name: .navigateToLine, object: nil, userInfo: ["lineNumber": lineNumber])
+    private func navigateToLine(_ lineNumber: Int, columnNumber: Int) {
+        NotificationCenter.default.post(name: .navigateToLine, object: nil, userInfo: ["lineNumber": lineNumber, "columnNumber": columnNumber])
     }
 
     var body: some View {
@@ -215,13 +230,14 @@ struct ContentView: View {
 
                         ForEach(scriptErrors) { error in
                             Button(action: {
-                                navigateToLine(error.lineNumber)
+                                navigateToLine(error.lineNumber, columnNumber: error.columnNumber)
                             }) {
-                                Text("Error on line \(error.lineNumber): \(error.message)")
+                                Text("Error on line \(error.lineNumber), column \(error.columnNumber): \(error.message)")
                                     .foregroundColor(.red)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                             }
                             .buttonStyle(PlainButtonStyle())
+                            .padding(.horizontal)
                         }
                     }
                 }
@@ -233,7 +249,6 @@ struct ContentView: View {
     }
     
     private func parseErrorMessages(_ errorOutput: String) {
-        // Regular expression to match error messages with file name and line number
         let pattern = #"(?m)(.*):(\d+):(\d+):\s(error|warning):\s(.*)$"#
 
         guard let regex = try? NSRegularExpression(pattern: pattern, options: []) else { return }
@@ -242,17 +257,21 @@ struct ContentView: View {
 
         for match in matches {
             let lineNumberRange = match.range(at: 2)
+            let columnNumberRange = match.range(at: 3)
             let messageRange = match.range(at: 5)
 
             if let lineNumberString = (errorOutput as NSString).substring(with: lineNumberRange) as String?,
+               let columnNumberString = (errorOutput as NSString).substring(with: columnNumberRange) as String?,
                let lineNumber = Int(lineNumberString),
+               let columnNumber = Int(columnNumberString),
                let message = (errorOutput as NSString).substring(with: messageRange) as String? {
 
-                let scriptError = ScriptError(message: message, lineNumber: lineNumber, range: nil)
+                let scriptError = ScriptError(message: message, lineNumber: lineNumber, columnNumber: columnNumber, range: nil)
                 scriptErrors.append(scriptError)
             }
         }
     }
+
 
     private func runScript() {
         isRunning = true
