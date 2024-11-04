@@ -29,6 +29,7 @@ struct SyntaxHighlightingTextView: NSViewRepresentable {
         textView.textContainer?.containerSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
         textView.textContainerInset = NSSize(width: 5, height: 5)
         textView.backgroundColor = NSColor.textBackgroundColor
+        textView.isAutomaticQuoteSubstitutionEnabled = false    // Disable smart quotes
 
         
         let scrollView = NSScrollView()
