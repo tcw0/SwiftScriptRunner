@@ -94,7 +94,7 @@ struct SyntaxHighlightingTextView: NSViewRepresentable {
 
 
         // Highlight string literals, outside of comment ranges
-        let stringPattern = "\"(\\\\.|[^\"\\\\])*\""        // String literals
+        let stringPattern = "(\"(\\\\.|[^\"\\\\])*\"|'(\\\\.|[^'\\\\])*')"        // String literals
         let stringRegex = try? NSRegularExpression(pattern: stringPattern, options: [])
         stringRegex?.enumerateMatches(in: text, options: [], range: fullRange) { match, _, _ in
             if let matchRange = match?.range {
