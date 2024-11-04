@@ -33,6 +33,7 @@ struct SyntaxHighlightingTextView: NSViewRepresentable {
         textView.textContainerInset = NSSize(width: 5, height: 5)   // Add padding inside the text container
         textView.backgroundColor = NSColor.textBackgroundColor      // Set the background color
         textView.isAutomaticQuoteSubstitutionEnabled = false        // Disable automatic smart quotes
+        textView.isAutomaticDashSubstitutionEnabled = false          // Disable dash replacement (e.g., "..." to "…")
 
         // Wrap textView in NSScrollView to allow scrolling
         let scrollView = NSScrollView()
