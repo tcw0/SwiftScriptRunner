@@ -183,40 +183,47 @@ struct ContentView: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                Button(action: {
-                    runScript()
-                }) {
-                    Text("Run")
+
+                HStack {
+                    Spacer()
+                    
+                    if isRunning {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle())
+                            .scaleEffect(0.7)
+                        Text("Running...")
+                    } else {
+                        Text("Idle")
+                    }
                 }
-                .keyboardShortcut(.return, modifiers: [])
-                .padding(.leading)
-                .disabled(isRunning)
                 
-                Button(action: {
-                    stopScript()
-                }) {
-                    Text("Stop")
+
+
+                HStack {
+                    Spacer()
+                    
+                    if let exitCode = exitCode {
+                        Text("Exit Code: \(exitCode)")
+                            .foregroundColor(exitCode == 0 ? .green : .red)
+                    }
+                    
+                    Button(action: {
+                        runScript()
+                    }) {
+                        Text("Run")
+                    }
+                    .keyboardShortcut(.return, modifiers: [])
+                    .disabled(isRunning)
+                    
+                    Button(action: {
+                        stopScript()
+                    }) {
+                        Text("Stop")
+                    }
+                    .keyboardShortcut(.escape, modifiers: [])
+                    .padding(.trailing)
+                    .disabled(!isRunning)
                 }
-                .keyboardShortcut(.escape, modifiers: [])
-                .disabled(!isRunning)
-
-                Spacer()
-
-                if isRunning {
-                    ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle())
-                        .scaleEffect(0.7)
-                    Text("Running...")
-                } else {
-                    Text("Idle")
-                }
-
-                if let exitCode = exitCode {
-                    Text("Exit Code: \(exitCode)")
-                        .foregroundColor(exitCode == 0 ? .green : .red)
-                }
-
-                Spacer()
             }
             .padding(.vertical, 8)
             .background(Color(NSColor.windowBackgroundColor))
