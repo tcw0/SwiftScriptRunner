@@ -7,6 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0B3F05CD2CD9594200CB868E /* SyntaxHighlightingTextView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B3F05CC2CD9594200CB868E /* SyntaxHighlightingTextView.swift */; };
+		0B3F05CF2CD9598800CB868E /* ScriptError.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B3F05CE2CD9598800CB868E /* ScriptError.swift */; };
+		0B3F05D12CD9599200CB868E /* CustomTextView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B3F05D02CD9599200CB868E /* CustomTextView.swift */; };
+		0B3F05D32CD9599A00CB868E /* Notifications.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B3F05D22CD9599A00CB868E /* Notifications.swift */; };
 		0BE123CE2CD64EFD002E311B /* SwiftScriptRunnerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BE123CD2CD64EFD002E311B /* SwiftScriptRunnerApp.swift */; };
 		0BE123D02CD64EFD002E311B /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BE123CF2CD64EFD002E311B /* ContentView.swift */; };
 		0BE123D22CD64EFF002E311B /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0BE123D12CD64EFF002E311B /* Assets.xcassets */; };
@@ -14,6 +18,10 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		0B3F05CC2CD9594200CB868E /* SyntaxHighlightingTextView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyntaxHighlightingTextView.swift; sourceTree = "<group>"; };
+		0B3F05CE2CD9598800CB868E /* ScriptError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScriptError.swift; sourceTree = "<group>"; };
+		0B3F05D02CD9599200CB868E /* CustomTextView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomTextView.swift; sourceTree = "<group>"; };
+		0B3F05D22CD9599A00CB868E /* Notifications.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Notifications.swift; sourceTree = "<group>"; };
 		0BE123CA2CD64EFD002E311B /* SwiftScriptRunner.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SwiftScriptRunner.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		0BE123CD2CD64EFD002E311B /* SwiftScriptRunnerApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwiftScriptRunnerApp.swift; sourceTree = "<group>"; };
 		0BE123CF2CD64EFD002E311B /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -33,6 +41,31 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		0B3F05C92CD957C600CB868E /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				0B3F05CC2CD9594200CB868E /* SyntaxHighlightingTextView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		0B3F05CA2CD9582C00CB868E /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				0B3F05CE2CD9598800CB868E /* ScriptError.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		0B3F05CB2CD9583C00CB868E /* Utilities */ = {
+			isa = PBXGroup;
+			children = (
+				0B3F05D02CD9599200CB868E /* CustomTextView.swift */,
+				0B3F05D22CD9599A00CB868E /* Notifications.swift */,
+			);
+			path = Utilities;
+			sourceTree = "<group>";
+		};
 		0BE123C12CD64EFD002E311B = {
 			isa = PBXGroup;
 			children = (
@@ -54,6 +87,9 @@
 			children = (
 				0BE123CD2CD64EFD002E311B /* SwiftScriptRunnerApp.swift */,
 				0BE123CF2CD64EFD002E311B /* ContentView.swift */,
+				0B3F05C92CD957C600CB868E /* Views */,
+				0B3F05CA2CD9582C00CB868E /* Models */,
+				0B3F05CB2CD9583C00CB868E /* Utilities */,
 				0BE123D12CD64EFF002E311B /* Assets.xcassets */,
 				0BE123D62CD64EFF002E311B /* SwiftScriptRunner.entitlements */,
 				0BE123D32CD64EFF002E311B /* Preview Content */,
@@ -139,8 +175,12 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				0B3F05D32CD9599A00CB868E /* Notifications.swift in Sources */,
+				0B3F05CD2CD9594200CB868E /* SyntaxHighlightingTextView.swift in Sources */,
+				0B3F05D12CD9599200CB868E /* CustomTextView.swift in Sources */,
 				0BE123D02CD64EFD002E311B /* ContentView.swift in Sources */,
 				0BE123CE2CD64EFD002E311B /* SwiftScriptRunnerApp.swift in Sources */,
+				0B3F05CF2CD9598800CB868E /* ScriptError.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
