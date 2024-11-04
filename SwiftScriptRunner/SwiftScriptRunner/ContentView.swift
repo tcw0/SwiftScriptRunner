@@ -224,6 +224,7 @@ struct ContentView: View {
                 ScrollView {
                     VStack(alignment: .leading) {
                         Text(outputText)
+                            .textSelection(.enabled)
                             .font(.system(.body, design: .monospaced))
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding()
