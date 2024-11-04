@@ -170,7 +170,12 @@ struct ContentView: View {
     @State private var errorPipe: Pipe?
     
     @State private var scriptErrors: [ScriptError] = []
-    
+
+    // Interactive input
+    @State private var inputPipe: Pipe?
+    @State private var userInput: String = ""
+    @State private var isInputFieldDisabled: Bool = true
+
     private func navigateToLine(_ lineNumber: Int, columnNumber: Int) {
         NotificationCenter.default.post(name: .navigateToLine, object: nil, userInfo: ["lineNumber": lineNumber, "columnNumber": columnNumber])
     }
@@ -221,30 +226,54 @@ struct ContentView: View {
             HSplitView {
                 SyntaxHighlightingTextView(text: $scriptText)
                     .frame(minWidth: 200)
-                
-                ScrollView {
-                    VStack(alignment: .leading) {
-                        Text(outputText)
-                            .textSelection(.enabled)
-                            .font(.system(.body, design: .monospaced))
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding()
 
-                        ForEach(scriptErrors) { error in
-                            Button(action: {
-                                navigateToLine(error.lineNumber, columnNumber: error.columnNumber)
-                            }) {
-                                Text("Error on line \(error.lineNumber), column \(error.columnNumber): \(error.message)")
-                                    .foregroundColor(.red)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
+                VStack {
+                    ScrollView {
+                        VStack(alignment: .leading) {
+                            // Display the output text
+                            Text(outputText)
+                                .textSelection(.enabled)
+                                .font(.system(.body, design: .monospaced))
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding()
+
+                            // Display script errors
+                            ForEach(scriptErrors) { error in
+                                Button(action: {
+                                    navigateToLine(error.lineNumber, columnNumber: error.columnNumber)
+                                }) {
+                                    Text("Error on line \(error.lineNumber), column \(error.columnNumber): \(error.message)")
+                                        .foregroundColor(.red)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                }
+                                .buttonStyle(PlainButtonStyle())
+                                .padding(.horizontal)
                             }
-                            .buttonStyle(PlainButtonStyle())
-                            .padding(.horizontal)
                         }
                     }
+                    .background(Color(NSColor.textBackgroundColor))
+                    .frame(minWidth: 200)
+
+                    Spacer()
+
+                    if isRunning {
+                        HStack {
+                            TextField("Enter input...", text: $userInput, onCommit: {
+                                sendInput()
+                            })
+                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                            .disabled(isInputFieldDisabled)
+
+                            Button(action: {
+                                sendInput()
+                            }) {
+                                Text("Send")
+                            }
+                            .disabled(userInput.isEmpty || isInputFieldDisabled)
+                        }
+                        .padding()
+                    }
                 }
-                .background(Color(NSColor.textBackgroundColor))
-                .frame(minWidth: 200)
             }
             .frame(minWidth: 600, minHeight: 400)
         }
@@ -280,6 +309,8 @@ struct ContentView: View {
         outputText = ""
         exitCode = nil
         scriptErrors = []
+        userInput = ""
+        isInputFieldDisabled = false
 
         // Create a temporary directory
         let tempDirectory = FileManager.default.temporaryDirectory
@@ -291,6 +322,7 @@ struct ContentView: View {
         } catch {
             outputText = "Failed to write script: \(error.localizedDescription)"
             isRunning = false
+            isInputFieldDisabled = true
             return
         }
 
@@ -299,6 +331,7 @@ struct ContentView: View {
         guard let process = process else {
             outputText = "Failed to create process"
             isRunning = false
+            isInputFieldDisabled = true
             return
         }
         process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
@@ -308,13 +341,16 @@ struct ContentView: View {
         // Set up Pipes
         outputPipe = Pipe()
         errorPipe = Pipe()
-        guard let outputPipe = outputPipe, let errorPipe = errorPipe else {
+        inputPipe = Pipe() // Initialize the input pipe
+        guard let outputPipe = outputPipe, let errorPipe = errorPipe, let inputPipe = inputPipe else {
             outputText = "Failed to create pipes"
             isRunning = false
+            isInputFieldDisabled = true
             return
         }
         process.standardOutput = outputPipe
         process.standardError = errorPipe
+        process.standardInput = inputPipe
 
         // Handle output
         outputPipe.fileHandleForReading.readabilityHandler = { handle in
@@ -322,7 +358,6 @@ struct ContentView: View {
             if let output = String(data: data, encoding: .utf8), !output.isEmpty {
                 DispatchQueue.main.async {
                     self.outputText += output
-                    print("Output: \(output)")
                 }
             }
         }
@@ -345,13 +380,13 @@ struct ContentView: View {
                 self.isRunning = false
                 self.exitCode = process.terminationStatus
 
-                print("Exit Code: \(process.terminationStatus)")
-
                 self.outputPipe?.fileHandleForReading.readabilityHandler = nil
                 self.errorPipe?.fileHandleForReading.readabilityHandler = nil
                 self.process = nil
                 self.outputPipe = nil
                 self.errorPipe = nil
+                self.inputPipe = nil
+                self.isInputFieldDisabled = true
             }
         }
 
@@ -361,15 +396,29 @@ struct ContentView: View {
         } catch {
             outputText = "Failed to execute script: \(error.localizedDescription)"
             isRunning = false
+            isInputFieldDisabled = true
         }
     }
-    
+
     private func stopScript() {
         guard let process = process else { return }
 
         process.terminate()
         isRunning = false
+        isInputFieldDisabled = true
         outputText += "\nScript execution was terminated by the user.\n"
+    }
+
+    private func sendInput() {
+        guard let inputPipe = inputPipe else { return }
+
+        let input = userInput + "\n"
+
+        if let inputData = input.data(using: .utf8) {
+            inputPipe.fileHandleForWriting.write(inputData)
+        }
+
+        userInput = ""
     }
 }
 
